@@ -14,14 +14,26 @@ class ConanFileDefault(ConanFileBase):
     exports = ConanFileBase.exports + ["protobuf.patch"]
 
     settings = "os", "arch", "compiler", "build_type"
-    options = {"shared": [True, False],
-               "with_zlib": [True, False],
-               "fPIC": [True, False],
-               "lite": [True, False]}
-    default_options = {"with_zlib": False,
-                       "shared": False,
-                       "fPIC": True,
-                       "lite": False}
+    options = {
+        "shared": [True, False],
+        "fPIC": [True, False],
+        "with_zlib": [True, False],
+        "with_rtti": [True, False],
+        "lite": [True, False],
+        "debug_suffix": [True, False],
+    }
+    default_options = {
+        "shared": False,
+        "fPIC": True,
+        "with_zlib": True,
+        "with_rtti": True,
+        "lite": False,
+        "debug_suffix": True,
+    }
+
+    @property
+    def _is_clang_cl(self):
+        return self.settings.compiler == 'clang' and self.settings.os == 'Windows'
 
     @property
     def _is_clang_x86(self):
@@ -32,8 +44,9 @@ class ConanFileDefault(ConanFileBase):
             del self.options.fPIC
             compiler_version = Version(self.settings.compiler.version.value)
             if compiler_version < "14":
-                raise ConanInvalidConfiguration("On Windows, the protobuf/3.6.x package can only be built with the "
-                                           "Visual Studio 2015 or higher.")
+                raise ConanInvalidConfiguration(
+                    "On Windows, the protobuf/3.6.x package can only be built with the "
+                    "Visual Studio 2015 or higher.")
 
     def requirements(self):
         if self.options.with_zlib:
@@ -43,23 +56,30 @@ class ConanFileDefault(ConanFileBase):
         cmake = CMake(self, set_cmake_flags=True)
         cmake.definitions["protobuf_BUILD_TESTS"] = False
         cmake.definitions["protobuf_WITH_ZLIB"] = self.options.with_zlib
-        cmake.definitions["protobuf_BUILD_PROTOC_BINARIES"] = not self.options.lite
+        cmake.definitions[
+            "protobuf_BUILD_PROTOC_BINARIES"] = not self.options.lite
         cmake.definitions["protobuf_BUILD_PROTOBUF_LITE"] = self.options.lite
         if self.settings.compiler == "Visual Studio":
-            cmake.definitions["protobuf_MSVC_STATIC_RUNTIME"] = "MT" in self.settings.compiler.runtime
+            cmake.definitions[
+                "protobuf_MSVC_STATIC_RUNTIME"] = "MT" in self.settings.compiler.runtime
         cmake.configure(build_folder=self._build_subfolder)
         return cmake
 
     def build(self):
-        tools.patch(base_path=self._source_subfolder, patch_file="protobuf.patch")
+        tools.patch(base_path=self._source_subfolder,
+                    patch_file="protobuf.patch")
         cmake = self._configure_cmake()
-        cmake.build()
+        # cmake.build()
+        print('Disabled build step instead...')
 
     def package(self):
         self.copy("LICENSE", dst="licenses", src=self._source_subfolder)
         cmake = self._configure_cmake()
         cmake.install()
-        self.copy("*.pdb", dst="lib", src=self._build_subfolder, keep_path=False)
+        self.copy("*.pdb",
+                  dst="lib",
+                  src=self._build_subfolder,
+                  keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
