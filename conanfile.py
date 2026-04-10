@@ -65,12 +65,49 @@ class ConanFileDefault(ConanFileBase):
         cmake.configure(build_folder=self._build_subfolder)
         return cmake
 
+    def _replace_or_fail(self, file_path, old, new):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        if old not in content:
+            raise ConanInvalidConfiguration(
+                "Expected text not found in {} while preparing protobuf sources".format(file_path)
+            )
+        content = content.replace(old, new, 1)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
     def build(self):
         tools.patch(base_path=self._source_subfolder,
                     patch_file="protobuf.patch")
+
+        protoc_cmake = os.path.join(self._source_subfolder, 'cmake', 'protoc.cmake')
+        self._replace_or_fail(
+            protoc_cmake,
+            'add_executable(protoc ${protoc_files})\n'
+            'target_link_libraries(protoc libprotobuf libprotoc)\n'
+            'add_executable(protobuf::protoc ALIAS protoc)\n',
+            'add_executable(protoc ${protoc_files})\n'
+            '# Clang x86 requires atomic lib\n'
+            'if (${CMAKE_SIZEOF_VOID_P} EQUAL 4 AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" AND NOT ${CMAKE_LIBRARY_ARCHITECTURE})\n'
+            '    target_link_libraries(protoc libprotobuf libprotoc atomic)\n'
+            'else ()\n'
+            '    target_link_libraries(protoc libprotobuf libprotoc)\n'
+            'endif ()\n'
+            'add_executable(protobuf::protoc ALIAS protoc)\n'
+        )
+
+        hash_h = os.path.join(self._source_subfolder, 'src', 'google', 'protobuf', 'stubs', 'hash.h')
+        self._replace_or_fail(
+            hash_h,
+            '#elif defined(_MSC_VER) && !defined(_STLPORT_VERSION) && \\\n'
+            '    !(defined(_LIBCPP_STD_VER) && _LIBCPP_STD_VER >= 11)\n',
+            '#elif defined(_MSC_VER) && !defined(GOOGLE_PROTOBUF_HAS_CXX11_HASH) && \\\n'
+            '      !defined(_STLPORT_VERSION) && \\\n'
+            '    !(defined(_LIBCPP_STD_VER) && _LIBCPP_STD_VER >= 11)\n'
+        )
+
         cmake = self._configure_cmake()
-        # cmake.build()
-        print('Disabled build step instead...')
+        cmake.build()
 
     def package(self):
         self.copy("LICENSE", dst="licenses", src=self._source_subfolder)

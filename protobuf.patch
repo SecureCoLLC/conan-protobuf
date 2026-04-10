@@ -134,19 +134,3 @@ index 65d05c1..c3fc7d9 100644
  if(protobuf_WITH_ZLIB)
      target_link_libraries(libprotobuf ${ZLIB_LIBRARIES})
  endif()
-diff --git a/cmake/protoc.cmake b/cmake/protoc.cmake
-index 5777b16..45c9d4f 100644
---- a/cmake/protoc.cmake
-+++ b/cmake/protoc.cmake
-@@ -3,5 +3,10 @@ set(protoc_files
- )
- 
- add_executable(protoc ${protoc_files})
--target_link_libraries(protoc libprotobuf libprotoc)
-+# Clang x86 requires atomic lib
-+if (${CMAKE_SIZEOF_VOID_P} EQUAL 4 AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" AND NOT ${CMAKE_LIBRARY_ARCHITECTURE})
-+    target_link_libraries(protoc libprotobuf libprotoc atomic)
-+else ()
-+    target_link_libraries(protoc libprotobuf libprotoc)
-+endif ()
- add_executable(protobuf::protoc ALIAS protoc)
