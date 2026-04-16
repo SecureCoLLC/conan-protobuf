@@ -105,6 +105,41 @@ class ConanFileDefault(ConanFileBase):
             '      !defined(_STLPORT_VERSION) && \\\n'
             '    !(defined(_LIBCPP_STD_VER) && _LIBCPP_STD_VER >= 11)\n'
         )
+        self._replace_or_fail(
+            hash_h,
+            '#define GOOGLE_PROTOBUF_STUBS_HASH_H__\\\n',
+            '#define GOOGLE_PROTOBUF_STUBS_HASH_H__\\\n'
+            '#include <functional> // for std::hash and std::less\\\n'
+            '\\\n'
+            'namespace stdext {\\\n'
+            '    template<class _Kty, class _Traits = std::less<_Kty>>\\\n'
+            '    class hash_compare {\\\n'
+            '    public:\\\n'
+            '        // Default constants used by legacy Microsoft containers\\\n'
+            '        static const size_t bucket_size = 4;\\\n'
+            '        static const size_t min_buckets = 8;\\\n'
+            '\\\n'
+            '        hash_compare() : comp() {}\\\n'
+            '        hash_compare(_Traits _Alstr) : comp(_Alstr) {}\\\n'
+            '\\\n'
+            '        // 1. The Hashing Function\\\n'
+            '        size_t operator()(const _Kty& _Keyval) const {\\\n'
+            '            // Note: Older MSVC versions used a specific internal hash_value() \\\n'
+            '            // function, but std::hash is the modern standard equivalent.\\\n'
+            '            return (size_t)std::hash<_Kty>{}(_Keyval);\\\n'
+            '        }\\\n'
+            '\\\n'
+            '        // 2. The Comparison Function (Strict Weak Ordering)\\\n'
+            '        // Returns true if _Keyval1 < _Keyval2\\\n'
+            '        bool operator()(const _Kty& _Keyval1, const _Kty& _Keyval2) const {\\\n'
+            '            return comp(_Keyval1, _Keyval2);\\\n'
+            '        }\\\n'
+            '\\\n'
+            '    protected:\\\n'
+            '        _Traits comp; // Stored comparator object\\\n'
+            '    };\\\n'
+            '}\\\n'
+        )
 
         cmake = self._configure_cmake()
         cmake.build()
